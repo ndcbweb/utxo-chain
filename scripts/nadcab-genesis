@@ -1,0 +1,10 @@
+#!/bin/sh
+# Mines the genesis block of /chain/chain.json (or $1) and writes nonce, time and hash back into the file.
+set -eu
+CHAIN="${1:-/chain/chain.json}"
+TMP="$(mktemp -d)"
+GENESIS="$(nadcab-coind -datadir="$TMP" -chainjson="$CHAIN" -printgenesis)"
+rm -rf "$TMP"
+jq --argjson g "$GENESIS" '.genesis.nonce = $g.nonce | .genesis.time = $g.time | .genesis.hash = $g.hash' "$CHAIN" > "$CHAIN.tmp"
+mv "$CHAIN.tmp" "$CHAIN"
+echo "$GENESIS"

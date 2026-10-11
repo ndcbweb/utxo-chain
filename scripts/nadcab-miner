@@ -1,0 +1,11 @@
+#!/bin/sh
+# Mines blocks to $MINER_ADDRESS forever; block 1 (the premine, if any) goes to $PREMINE_ADDRESS.
+set -u
+CLI="nadcab-coin-cli -datadir=/data -rpcport=${RPC_PORT:-8332}"
+until $CLI getblockcount >/dev/null 2>&1; do sleep 2; done
+while true; do
+  HEIGHT="$($CLI getblockcount 2>/dev/null || echo -1)"
+  ADDRESS="$MINER_ADDRESS"
+  [ "$HEIGHT" = "0" ] && [ -n "${PREMINE_ADDRESS:-}" ] && ADDRESS="$PREMINE_ADDRESS"
+  $CLI generatetoaddress 1 "$ADDRESS" "${MINER_TRIES:-2000000}" >/dev/null 2>&1 || sleep 2
+done

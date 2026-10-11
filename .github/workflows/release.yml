@@ -1,0 +1,45 @@
+name: Build, test and publish image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: nadcab/utxo-chain:latest
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Integration test
+        run: bash test/integration.sh
+
+      - run: docker save nadcab/utxo-chain:latest | gzip -1 > utxo-chain.tar.gz && ls -lh utxo-chain.tar.gz
+
+      - name: Publish to the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest --title "Latest build" --notes "Rolling build of main."
+          gh release upload latest utxo-chain.tar.gz --clobber
+          gh release edit latest --notes "Rolling build of main at ${GITHUB_SHA::7}. Load with: curl -fsSL <asset> | gunzip | docker load"
