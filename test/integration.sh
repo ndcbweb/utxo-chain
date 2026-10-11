@@ -13,7 +13,7 @@ chain_json() { # algorithm port magic [reductionPercent]
   "name": "Test Coin", "ticker": "TST", "algorithm": "$1",
   "messageStart": "$3", "port": $2, "bech32": "tst",
   "base58": { "pubkey": 50, "script": 55, "secret": 178, "extPublic": "0488b21e", "extSecret": "0488ade4" },
-  "blockSpacing": 600, "retargetInterval": 10,
+  "blockSpacing": 600, "retargetInterval": 50,
   "powLimit": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "genesis": { "time": 1760000000, "bits": "207fffff", "message": "Nadcab CI genesis" },
   "subsidy": { "initial": "5000000000", "halvingInterval": 20, "maxHalvings": 3, "tail": "100000000", "premine": "100000000000", "reductionPercent": ${4:-50} }
@@ -58,8 +58,8 @@ for pair in 2:5000000000 19:5000000000 20:2500000000 40:1250000000 60:625000000 
 done
 echo "emission ok"
 
-D10="$(cli n1 39332 getblockheader "$(cli n1 39332 getblockhash 9)" | jq -r .bits)"
-D20="$(cli n1 39332 getblockheader "$(cli n1 39332 getblockhash 20)" | jq -r .bits)"
+D10="$(cli n1 39332 getblockheader "$(cli n1 39332 getblockhash 99)" | jq -r .bits)"
+D20="$(cli n1 39332 getblockheader "$(cli n1 39332 getblockhash 100)" | jq -r .bits)"
 [ "$D10" != "$D20" ] || fail "difficulty did not retarget ($D10)"
 echo "retarget ok: $D10 -> $D20"
 
