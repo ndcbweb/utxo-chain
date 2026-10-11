@@ -51,6 +51,11 @@ echo "addresses ok: $BECH $LEGACY"
 cli n1 39332 generatetoaddress 1 "$BECH" >/dev/null
 [ "$(coinbase_value n1 39332 1)" = "100000000000" ] || fail "premine $(coinbase_value n1 39332 1)"
 cli n1 39332 generatetoaddress 109 "$BECH" >/dev/null
+if [ "$(cli n1 39332 getblockcount)" != 110 ]; then
+  cli n1 39332 getchaintips
+  docker logs n1 2>&1 | grep -iE "invalid|error|reject|bad-" | tail -20
+  fail "mined to height $(cli n1 39332 getblockcount), want 110"
+fi
 for pair in 2:5000000000 19:5000000000 20:2500000000 40:1250000000 60:625000000 100:625000000; do
   h=${pair%%:*}; want=${pair#*:}
   got="$(coinbase_value n1 39332 "$h")"
