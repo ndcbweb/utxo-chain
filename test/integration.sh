@@ -31,7 +31,8 @@ start_node() { # name chain-dir port rpcport [extra...]
   docker logs "$name" | tail -40; fail "$name did not start"
 }
 cli() { local name=$1 rpc=$2; shift 2; docker exec "$name" nadcab-coin-cli -datadir=/data -rpcport="$rpc" "$@"; }
-coinbase_value() { cli "$1" "$2" getblock "$(cli "$1" "$2" getblockhash "$3")" 2 | jq -r '[.tx[0].vout[].value] | add'; }
+# Coinbase output total in satoshis (jq would print 1000.00000000 as 1000).
+coinbase_value() { cli "$1" "$2" getblock "$(cli "$1" "$2" getblockhash "$3")" 2 | jq -r '[.tx[0].vout[].value * 100000000 | round] | add'; }
 
 echo "== SHA-256d chain"
 A="$WORK/a"; mkdir -p "$A"
@@ -48,9 +49,9 @@ BECH="$(cli n1 39332 getnewaddress '' bech32)"; LEGACY="$(cli n1 39332 getnewadd
 echo "addresses ok: $BECH $LEGACY"
 
 cli n1 39332 generatetoaddress 1 "$BECH" >/dev/null
-[ "$(coinbase_value n1 39332 1)" = "1000.00000000" ] || fail "premine $(coinbase_value n1 39332 1)"
+[ "$(coinbase_value n1 39332 1)" = "100000000000" ] || fail "premine $(coinbase_value n1 39332 1)"
 cli n1 39332 generatetoaddress 109 "$BECH" >/dev/null
-for pair in 2:50.00000000 19:50.00000000 20:25.00000000 40:12.50000000 60:6.25000000 100:6.25000000; do
+for pair in 2:5000000000 19:5000000000 20:2500000000 40:1250000000 60:625000000 100:625000000; do
   h=${pair%%:*}; want=${pair#*:}
   got="$(coinbase_value n1 39332 "$h")"
   [ "$got" = "$want" ] || fail "subsidy at $h: $got, want $want"
@@ -81,7 +82,7 @@ cli n1 39432 generatetoaddress 45 "$ADDR" >/dev/null
 for _ in $(seq 1 60); do [ "$(cli n2 39442 getblockcount)" = "45" ] && break; sleep 1; done
 [ "$(cli n2 39442 getbestblockhash)" = "$(cli n1 39432 getbestblockhash)" ] || fail "n2 did not sync"
 echo "p2p sync ok"
-for pair in 2:50.00000000 20:40.00000000 40:32.00000000; do
+for pair in 2:5000000000 20:4000000000 40:3200000000; do
   h=${pair%%:*}; want=${pair#*:}
   got="$(coinbase_value n1 39432 "$h")"
   [ "$got" = "$want" ] || fail "20% reduction at $h: $got, want $want"
