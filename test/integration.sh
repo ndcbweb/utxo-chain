@@ -26,7 +26,7 @@ start_node() { # name chain-dir port rpcport [extra...]
   mkdir -p "$dir/data"
   docker run -d --name "$name" --network host -v "$dir:/chain" -v "$dir/data:/data" "$IMAGE" \
     -datadir=/data -chainjson=/chain/chain.json -port="$port" -rpcport="$rpc" -rpcbind=127.0.0.1 -rpcallowip=127.0.0.1 \
-    -txindex=1 -fallbackfee=0.0001 -listen=1 -discover=0 -dnsseed=0 -printtoconsole=1 "$@" >/dev/null
+    -txindex=1 -fallbackfee=0.0001 -listen=1 -listenonion=0 -discover=0 -dnsseed=0 -printtoconsole=1 "$@" >/dev/null
   for _ in $(seq 1 60); do cli "$name" "$rpc" getblockcount >/dev/null 2>&1 && return; sleep 1; done
   docker logs "$name" | tail -40; fail "$name did not start"
 }
