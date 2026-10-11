@@ -94,6 +94,35 @@ edit(
 """,
 )
 
+# Retarget maths: powLimit can sit near 2^255 so a single CPU can mine, and target * timespan would wrap 256 bits.
+edit(
+    "src/pow.cpp",
+    "unsigned int GetNextWorkRequired(",
+    """/** target * num / den, dividing first when the product would overflow; overflow saturates (callers cap at powLimit). */
+static arith_uint256 NadcabMulDiv(const arith_uint256& target, int64_t num, int64_t den)
+{
+    const arith_uint256 n{uint64_t(num)};
+    const arith_uint256 d{uint64_t(den)};
+    const arith_uint256 max{~arith_uint256{}};
+    if (target <= max / n) return target * n / d;
+    const arith_uint256 divided{target / d};
+    return divided <= max / n ? arith_uint256{divided * n} : max;
+}
+
+unsigned int GetNextWorkRequired(""",
+)
+edit(
+    "src/pow.cpp",
+    "    bnNew *= nActualTimespan;\n    bnNew /= params.nPowTargetTimespan;\n",
+    "    bnNew = NadcabMulDiv(bnNew, nActualTimespan, params.nPowTargetTimespan);\n",
+)
+for name, span in (("largest_difficulty_target", "largest_timespan"), ("smallest_difficulty_target", "smallest_timespan")):
+    edit(
+        "src/pow.cpp",
+        f"        {name} *= {span};\n        {name} /= params.nPowTargetTimespan;\n",
+        f"        {name} = NadcabMulDiv({name}, {span}, params.nPowTargetTimespan);\n",
+    )
+
 # Room for large supplies; twice MAX_MONEY must still fit in int64 when outputs are summed.
 edit("src/consensus/amount.h", "static constexpr CAmount MAX_MONEY = 21000000 * COIN;", "static constexpr CAmount MAX_MONEY = 40000000000LL * COIN;")
 
