@@ -7,7 +7,7 @@ trap 'docker rm -f n1 n2 >/dev/null 2>&1 || true' EXIT
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
-chain_json() { # algorithm port magic
+chain_json() { # algorithm port magic [reductionPercent]
   cat <<JSON
 {
   "name": "Test Coin", "ticker": "TST", "algorithm": "$1",
@@ -16,7 +16,7 @@ chain_json() { # algorithm port magic
   "blockSpacing": 600, "retargetInterval": 10,
   "powLimit": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
   "genesis": { "time": 1760000000, "bits": "207fffff", "message": "Nadcab CI genesis" },
-  "subsidy": { "initial": "5000000000", "halvingInterval": 20, "maxHalvings": 3, "tail": "100000000", "premine": "100000000000" }
+  "subsidy": { "initial": "5000000000", "halvingInterval": 20, "maxHalvings": 3, "tail": "100000000", "premine": "100000000000", "reductionPercent": ${4:-50} }
 }
 JSON
 }
@@ -70,19 +70,25 @@ echo "spend ok"
 echo "== Scrypt chain, two nodes"
 docker rm -f n1 >/dev/null
 B="$WORK/b"; C="$WORK/c"; mkdir -p "$B" "$C"
-chain_json scrypt 39433 a1b2c3d4 > "$B/chain.json"
+chain_json scrypt 39433 a1b2c3d4 20 > "$B/chain.json"
 docker run --rm -v "$B:/chain" --entrypoint nadcab-genesis "$IMAGE" /chain/chain.json
 cp "$B/chain.json" "$C/chain.json"
 start_node n1 "$B" 39433 39432
 start_node n2 "$C" 39434 39442 -addnode=127.0.0.1:39433
 cli n1 39432 createwallet w >/dev/null
 ADDR="$(cli n1 39432 getnewaddress '' bech32)"
-cli n1 39432 generatetoaddress 25 "$ADDR" >/dev/null
-for _ in $(seq 1 60); do [ "$(cli n2 39442 getblockcount)" = "25" ] && break; sleep 1; done
+cli n1 39432 generatetoaddress 45 "$ADDR" >/dev/null
+for _ in $(seq 1 60); do [ "$(cli n2 39442 getblockcount)" = "45" ] && break; sleep 1; done
 [ "$(cli n2 39442 getbestblockhash)" = "$(cli n1 39432 getbestblockhash)" ] || fail "n2 did not sync"
 echo "p2p sync ok"
+for pair in 2:50.00000000 20:40.00000000 40:32.00000000; do
+  h=${pair%%:*}; want=${pair#*:}
+  got="$(coinbase_value n1 39432 "$h")"
+  [ "$got" = "$want" ] || fail "20% reduction at $h: $got, want $want"
+done
+echo "reduction schedule ok"
 
-for h in 0 1 12 25; do
+for h in 0 1 12 45; do
   HEADER="$(cli n1 39432 getblockheader "$(cli n1 39432 getblockhash $h)" false)"
   python3 - "$HEADER" <<'PY' || fail "scrypt hash of block $h above target"
 import hashlib, sys
@@ -97,7 +103,7 @@ echo "scrypt pow ok"
 
 docker restart n2 >/dev/null
 for _ in $(seq 1 60); do cli n2 39442 getblockcount >/dev/null 2>&1 && break; sleep 1; done
-[ "$(cli n2 39442 getblockcount)" = "25" ] || fail "restart lost blocks"
+[ "$(cli n2 39442 getblockcount)" = "45" ] || fail "restart lost blocks"
 echo "restart ok"
 
 echo "== Public RPC whitelist"

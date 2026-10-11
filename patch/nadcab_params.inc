@@ -62,6 +62,10 @@ public:
         consensus.nSubsidyHalvingInterval = JsonInt(subsidy, "halvingInterval", 210000);
         consensus.nInitialSubsidy = JsonInt(subsidy, "initial", 50 * COIN);
         consensus.nMaxHalvings = JsonInt(subsidy, "maxHalvings", 64);
+        consensus.nReductionPercent = JsonInt(subsidy, "reductionPercent", 50);
+        if (consensus.nReductionPercent < 1 || consensus.nReductionPercent > 99 || consensus.nMaxHalvings < 0 || consensus.nMaxHalvings > 10000) {
+            throw std::runtime_error("chainjson: reductionPercent must be 1-99 and maxHalvings 0-10000");
+        }
         consensus.nTailSubsidy = JsonInt(subsidy, "tail", 0);
         consensus.nPremine = JsonInt(subsidy, "premine", 0);
         if (!MoneyRange(consensus.nInitialSubsidy) || !MoneyRange(consensus.nTailSubsidy) || !MoneyRange(consensus.nPremine)) {

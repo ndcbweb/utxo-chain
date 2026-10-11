@@ -62,6 +62,8 @@ edit(
     /** Nadcab emission rules (defaults keep Bitcoin's schedule). */
     int64_t nInitialSubsidy{50 * 100000000LL};
     int nMaxHalvings{64};
+    /** Percent cut at each reduction step; 50 is an exact halving. */
+    int nReductionPercent{50};
     int64_t nTailSubsidy{0};
     int64_t nPremine{0};
 """,
@@ -79,9 +81,15 @@ edit(
     return nSubsidy;
 """,
     """    if (nHeight == 1 && consensusParams.nPremine > 0) return consensusParams.nPremine;
-    int halvings = consensusParams.nSubsidyHalvingInterval > 0 ? nHeight / consensusParams.nSubsidyHalvingInterval : 0;
-    halvings = std::min(halvings, consensusParams.nMaxHalvings);
-    CAmount nSubsidy = halvings >= 64 ? 0 : (consensusParams.nInitialSubsidy >> halvings);
+    int steps = consensusParams.nSubsidyHalvingInterval > 0 ? nHeight / consensusParams.nSubsidyHalvingInterval : 0;
+    steps = std::min(steps, consensusParams.nMaxHalvings);
+    CAmount nSubsidy = consensusParams.nInitialSubsidy;
+    const int keep = 100 - consensusParams.nReductionPercent;
+    if (consensusParams.nReductionPercent == 50) {
+        nSubsidy = steps >= 64 ? 0 : (nSubsidy >> steps);
+    } else {
+        for (int i = 0; i < steps && nSubsidy > 0; ++i) nSubsidy = nSubsidy / 100 * keep + (nSubsidy % 100) * keep / 100;
+    }
     return std::max<CAmount>(nSubsidy, consensusParams.nTailSubsidy);
 """,
 )
